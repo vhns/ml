@@ -1,11 +1,6 @@
 import PIL
-#from kera import layers
-#from time import gtime, strftime
-#import csv
-#import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
-#import pdb
 from pathlib import PurePath
 import argparse
 import re
@@ -14,13 +9,16 @@ import math
 import random
 import sys
 
-def search(pattern: type[re.Pattern], files: []):
+#This function receives a regex pattern and a list.
+#It returns the items that match the pattern, in another
+#list.
+def search(pattern: type[re.Pattern], inputs: []):
 
     matches = []
 
-    for i in files:
-        if pattern.match(i) != None:
-            matches.append(i)
+    for _input in inputs:
+        if pattern.match(_input) != None:
+            matches.append(_input)
 
     return matches
 
@@ -79,16 +77,21 @@ def pathgen(path: str, university: str)->[[]]:
     for root, dirs, files in os.walk(top=path,followlinks=True):
 
         rootpath = PurePath(root).parts
-        file = search(pattern, files)
+        files = search(pattern, files)
 
-        if all(i in rootpath for i in requirements):
-                if len(file) != 0:
-                    for i in file:
-                        pklot.append([rootpath[-4], \
-                        rootpath[-3], \
-                        rootpath[-2], \
-                        rootpath[-1], \
-                        os.path.abspath(os.path.join(root,i))])
+        if len(files) != 0:
+            if all(requirement in rootpath for requirement in requirements):
+                for file in files:
+                    #university
+                    pklot.append([rootpath[-4], \
+                    #weather
+                    rootpath[-3], \
+                    #date
+                    rootpath[-2], \
+                    #state (empty/occupied)
+                    rootpath[-1], \
+                    #complete file path
+                    os.path.abspath(os.path.join(root,file))])
 
     return pklot
 
@@ -96,7 +99,7 @@ def pathgen(path: str, university: str)->[[]]:
 def dataset_gen(datasetpath, percentagetrain, percentagetest, university):
 
     dataset = pathgen(datasetpath, university)
-    days = []
+    days = list(set([day[2] for day in dataset]))
     x = 0
     y = 0
     reduction = 0
@@ -104,10 +107,6 @@ def dataset_gen(datasetpath, percentagetrain, percentagetest, university):
     test = []
     train_files = []
     test_files = []
-
-    for i in dataset:
-        if i[2] not in days:
-                days.append(i[2])
 
 
     if percentagetrain < percentagetest:
@@ -149,6 +148,8 @@ def dataset_gen(datasetpath, percentagetrain, percentagetest, university):
 
     return train_files, test_files
 
+
+#Converts the dataset labels from their string counterparts to ints.
 def convert_label(i):
     match i:
         case 'Empty':
@@ -156,9 +157,10 @@ def convert_label(i):
         case 'Occupied':
             return int(1)
         case _:
-            sys.exit("Error!")
+            sys.exit("Error: Invalid label conversion, input: {label}")
 
-def shuffle_generator(data, seed):
+
+def shuffle_generator(data):
     idx = np.arange(len(data))
     np.random.shuffle(idx)
     for i in idx:
@@ -186,7 +188,7 @@ if __name__ == '__main__':
 
     train_ds = tf.data.Dataset.from_generator(
                 shuffle_generator,
-                args=[train_dataset, 42],
+                args=[train_dataset],
                 output_signature=(
                     tf.TensorSpec(shape=(32,32,3), dtype=tf.uint8),
                     tf.TensorSpec(shape=(), dtype=tf.uint8)))
