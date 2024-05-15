@@ -8,6 +8,7 @@ import os
 import math
 import random
 import sys
+import visualization
 
 #This function receives a regex pattern and a list.
 #It returns the items that match the pattern, in another
@@ -183,9 +184,12 @@ def convert_label(i):
             sys.exit("Error: Invalid label conversion, input: {label}")
 
 
-def shuffle_generator(data, img_size):
+def dataset_generator(data, img_size, random):
     idx = np.arange(len(data))
-    np.random.shuffle(idx)
+
+    if random:
+        np.random.shuffle(idx)
+
     for i in idx:
         label = str(data[i][1],encoding='utf-8')
         label = convert_label(label)
@@ -194,3 +198,53 @@ def shuffle_generator(data, img_size):
         img = img.resize((img_size,img_size))
         img = tf.keras.utils.img_to_array(img)
         yield img, label
+
+
+def train_model(model,train_dataset,validation_dataset,test_dataset,checkpoint_filepath,img_size, model_path):
+
+    train_ds = tf.data.Dataset.from_generator(
+                dataset_generator,
+                args=[train_dataset, img_size, True],
+                output_signature=(
+                    tf.TensorSpec(shape=(img_size,img_size,3), dtype=tf.uint8),
+                    tf.TensorSpec(shape=(), dtype=tf.uint8)))
+
+    validation_ds = tf.data.Dataset.from_generator(
+                dataset_generator,
+                args=[validation_dataset, img_size, True],
+                output_signature=(
+                    tf.TensorSpec(shape=(img_size,img_size,3), dtype=tf.uint8),
+                    tf.TensorSpec(shape=(), dtype=tf.uint8)))
+
+    test_ds = tf.data.Dataset.from_generator(
+                dataset_generator,
+                args=[test_dataset, img_size, True],
+                output_signature=(
+                    tf.TensorSpec(shape=(img_size,img_size,3), dtype=tf.uint8),
+                    tf.TensorSpec(shape=(), dtype=tf.uint8)))
+
+    callback = [
+            tf.keras.callbacks.ModelCheckpoint(
+                filepath=checkpoint_filepath,
+                monitor='val_accuracy',
+                mode='max',
+                save_best_only=True),
+            tf.keras.callbacks.CSVLogger(
+                filename=f'{model_path}/training.log',
+                separator=',',
+                append=False)
+            ]
+
+    visualization.show_sample(train_ds)
+
+    visualization.show_sample(test_ds)
+
+    visualization.show_sample(validation_ds)
+
+
+
+    model.fit(x=train_ds.batch(32).prefetch(4),epochs=50, \
+            validation_data=validation_ds.batch(32).prefetch(4),
+              callbacks=callback)
+
+    model.evaluate(x=test_ds.batch(32).prefetch(4))

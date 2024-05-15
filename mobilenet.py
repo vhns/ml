@@ -1,7 +1,7 @@
 from tensorflow import keras
 
 def static():
-    base_model = keras.applications.EfficientNetV2B0(
+    base_model = keras.applications.MobileNetV3Large(
                     input_shape=(128,128,3),
                     include_top=False)
     base_model.trainable = False
@@ -15,7 +15,7 @@ def static():
             keras.layers.Dense(128,activation='relu'),
             keras.layers.Dense(2,activation='softmax')
         ],
-        name='efficientnet_static')
+        name='mobilenet_static')
 
     model.compile(optimizer='Adam',
                   loss=keras.losses.SparseCategoricalCrossentropy(from_logits=True),
@@ -24,7 +24,7 @@ def static():
     return model
 
 def dynamic():
-    base_model = keras.applications.EfficientNetV2B0(
+    base_model = keras.applications.MobileNetV3Large(
                     input_shape=(128,128,3),
                     include_top=False)
     base_model.trainable = True
@@ -38,7 +38,7 @@ def dynamic():
             keras.layers.Dense(128,activation='relu'),
             keras.layers.Dense(2,activation='softmax')
         ],
-        name='efficientnet_dynamic')
+        name='mobilenet_dynamic')
 
     model.compile(optimizer='Adam',
                     loss=keras.losses.SparseCategoricalCrossentropy(from_logits=True),
