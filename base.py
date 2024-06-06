@@ -80,7 +80,7 @@ def pathgen(path: str, university: str)->[[]]:
         rootpath = PurePath(root).parts
         files = search(pattern, files)
 
-        if len(files) != 0:
+        if len(files) > 0:
             if all(requirement in rootpath for requirement in requirements):
                 for file in files:
                     #university
@@ -97,13 +97,13 @@ def pathgen(path: str, university: str)->[[]]:
     return pklot
 
 
-def dataset_gen(datasetpath, percentagetrain, percentagetest, percentagevalidation, university: str):
+def dataset_gen(datasetpath: str, percentagetrain: float, percentagetest: float, percentagevalidation: float, university: str, overlap_days: bool):
 
     dataset = pathgen(datasetpath, university)
     days = list(set([day[2] for day in dataset]))
     x = 0
     y = 0
-    reduction = 0
+    z = 0
     train = []
     test = []
     validation = []
@@ -112,45 +112,26 @@ def dataset_gen(datasetpath, percentagetrain, percentagetest, percentagevalidati
     validation_files = []
 
 
-    if percentagetrain <= percentagetest:
-        x = percentagetrain
-        reduction = x
-        x = int(math.ceil(len(days)*reduction))
-        y = int(math.floor(len(days)*percentagetest))
+    x = int(math.ceil(len(days)*percentagetrain))
+    y = int(math.ceil(len(days)*percentagetest))
+    z = int(math.ceil(len(days)*percentagevalidation))
 
-        for i in range(0,x):
-                l = random.randrange(0,len(days))
-                train.append(days[l])
-                days.pop(l)
-        if percentagevalidation:
-            for i in range(0,y):
-                l = random.randrange(0,len(days))
-                test.append(days[l])
-                days.pop(l)
-            validation = days
-        else:
-            test = days
+    for i in range(0,x):
+        l = random.randrange(0,len(days))
+        train.append(days[l])
+        days.pop(l)
+    for i in range(0,y):
+        l = random.randrange(0,len(days))
+        test.append(days[l])
+        days.pop(l)
+    for i in range(0,z):
+        l = random.randrange(0,len(days))
+        validation.append(days[l])
+        days.pop(l)
 
-
-    else:
-        x = percentagetest
-        reduction = x
-        x = int(math.ceil(len(days)*reduction))
-        y = int(math.floor(len(days)*percentagetrain))
-
-        for i in range(0,x):
-                l = random.randrange(0,len(days))
-                test.append(days[l])
-                days.pop(l)
-        if percentagevalidation:
-            for i in range(0,y):
-                l = random.randrange(0,len(days))
-                train.append(days[l])
-                days.pop(l)
-            validation = days
-        else:
-            train = days
-        train = days
+    print(f"\n\n\nDIAS DE TESTE: {test}")
+    print(f"\n\n\nDIAS DE TREINO: {train}")
+    print(f"\n\n\nDIAS DE VALIDACAO: {validation}\n\n\n")
 
 
     for i in train:
@@ -170,6 +151,10 @@ def dataset_gen(datasetpath, percentagetrain, percentagetest, percentagevalidati
                 if j[2] == i:
                     validation_files.append([j[-1],j[-2]])
 
+    print(f"\n\n\nQUANTIDADE TESTE: {len(test_files)}")
+    print(f"\n\n\nQUANTIDADE TREINO: {len(train_files)}")
+    print(f"\n\n\nQUANTIDADE VALIDACAO: {len(validation_files)}")
+
     return train_files, test_files, validation_files
 
 
@@ -184,7 +169,7 @@ def convert_label(i):
             sys.exit("Error: Invalid label conversion, input: {label}")
 
 
-def dataset_generator(data, img_size, random):
+def dataset_generator(data, img_size, random, resize):
     idx = np.arange(len(data))
 
     if random:
@@ -197,7 +182,10 @@ def dataset_generator(data, img_size, random):
         img = tf.keras.utils.load_img(img)
         img = img.resize((img_size,img_size))
         img = tf.keras.utils.img_to_array(img)
-        yield img, label
+        if resize:
+            yield img.astype('float32')/255, img.astype('float32')/255
+        else:
+            yield img, img
 
 
 def train_model(model,train_dataset,validation_dataset,test_dataset,checkpoint_filepath,img_size, model_path):
@@ -205,23 +193,25 @@ def train_model(model,train_dataset,validation_dataset,test_dataset,checkpoint_f
     train_ds = tf.data.Dataset.from_generator(
                 dataset_generator,
                 args=[train_dataset, img_size, True],
-                output_signature=(
-                    tf.TensorSpec(shape=(img_size,img_size,3), dtype=tf.uint8),
-                    tf.TensorSpec(shape=(), dtype=tf.uint8)))
+                output_signature=tf.TensorSpec(shape=(img_size,img_size,3), dtype=tf.uint8))
+                    #,
+                    #tf.TensorSpec(shape=(), dtype=tf.uint8)))
 
     validation_ds = tf.data.Dataset.from_generator(
                 dataset_generator,
                 args=[validation_dataset, img_size, True],
                 output_signature=(
-                    tf.TensorSpec(shape=(img_size,img_size,3), dtype=tf.uint8),
-                    tf.TensorSpec(shape=(), dtype=tf.uint8)))
+                    tf.TensorSpec(shape=(img_size,img_size,3), dtype=tf.uint8)))
+                    #,
+                    #tf.TensorSpec(shape=(), dtype=tf.uint8)))
 
     test_ds = tf.data.Dataset.from_generator(
                 dataset_generator,
                 args=[test_dataset, img_size, True],
                 output_signature=(
-                    tf.TensorSpec(shape=(img_size,img_size,3), dtype=tf.uint8),
-                    tf.TensorSpec(shape=(), dtype=tf.uint8)))
+                    tf.TensorSpec(shape=(img_size,img_size,3), dtype=tf.uint8)))
+                    #,
+                    #tf.TensorSpec(shape=(), dtype=tf.uint8)))
 
     callback = [
             tf.keras.callbacks.ModelCheckpoint(
@@ -243,8 +233,11 @@ def train_model(model,train_dataset,validation_dataset,test_dataset,checkpoint_f
 
 
 
-    model.fit(x=train_ds.batch(32).prefetch(4),epochs=50, \
+    model.fit(x=train_ds.batch(32).prefetch(4),epochs=5, \
             validation_data=validation_ds.batch(32).prefetch(4),
               callbacks=callback)
 
     model.evaluate(x=test_ds.batch(32).prefetch(4))
+
+    visualization.show_sample_with_results(model, test_ds)
+

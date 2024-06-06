@@ -32,3 +32,15 @@ def gen_graphs(data, path):
     plt.title('Training and Validation Loss')
     plt.savefig(f'{path}/graph.png')
     plt.show()
+
+def show_sample_with_results(model, dataset):
+    dataset = dataset.take(9)
+    plt.figure(figsize=(15,15))
+    for i in range(9):
+        image, _ = next(iter(dataset))
+        ax = plt.subplot(3,3,i+1)
+        image_generated = model(image)
+        plt.imshow(image.numpy().astype("uint8"))
+        plt.imshow(image_generated.numpy().astype("uint8"))
+        plt.axis("off")
+    plt.show()

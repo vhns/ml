@@ -15,6 +15,7 @@ if __name__ == '__main__':
     parser.add_argument('--model-path', '-mp', default=None, required=False, type=str,
                                                 nargs='+')
     parser.add_argument('--gen-graphs', '-gg', default=None, required=False, type=bool)
+    parser.add_argument('--logpath', '-l', default=None, required=False, type=str)
 
     path = parser.parse_args().path
     train = parser.parse_args().train
@@ -24,6 +25,12 @@ if __name__ == '__main__':
     batch_run = parser.parse_args().batch
     model_path = parser.parse_args().model_path
     gen_graphs = parser.parse_args().gen_graphs
+    logpath = parser.parse_args().log
+
+    if logpath != None:
+        logger = ProgramLogger(logpath, True)
+    else:
+        logger = ProgramLogger(logpath, False)
 
     if batch_run:
         batch.batchdata(path,train,test,validation,university)

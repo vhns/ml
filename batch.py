@@ -11,7 +11,7 @@ import copy
 from pathlib import PurePath
 import pandas as pd
 
-def batchdata(path,train,test,validation,university):
+def batchdata(path,train,test,validation,universities):
 
     if path == None:
         path = './'
@@ -25,11 +25,9 @@ def batchdata(path,train,test,validation,university):
     if validation == None:
         validation = 0.1
 
-    universities = ['PUC', 'UFPR04', 'UFPR05']
+    if universities == None:
+        universities = ['PUC', 'UFPR04', 'UFPR05']
 
-    dataset = base.dataset_gen(path,train,test,validation,university)
-
-    train_dataset, test_dataset, validation_dataset = dataset
 
     models = [threecvnn.model,
               mobilenet.static,
@@ -49,6 +47,10 @@ def batchdata(path,train,test,validation,university):
 
         for university in universities:
 
+            dataset = base.dataset_gen(path,train,test,validation,university)
+
+            train_dataset, test_dataset, validation_dataset = dataset
+
             model_path = f'./tests/{model().name}/{university}'
 
             model_run = model()
@@ -59,6 +61,10 @@ def batchdata(path,train,test,validation,university):
                         exist_ok=True)
 
             checkpoint_filepath = f'{model_path}/best.keras'
+
+            log_file = open(f'{model_path}/log.txt', 'w')
+            log_file.write(f'Modelo: {model().name}\nUniversidade: {university}\nArquivos de treino:\n{train_dataset}\nArquivos de teste:\n{test_dataset}\nArquivos de validacao:\n {validation_dataset}\n')
+
 
             base.train_model(model_run,train_dataset,validation_dataset,test_dataset, checkpoint_filepath, img_size, model_path)
 

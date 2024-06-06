@@ -2,3 +2,4 @@ PKLot
 .venv
 __pycache__
 *.keras
+tests
