@@ -3,3 +3,4 @@ PKLot
 __pycache__
 *.keras
 tests
+*.swp
