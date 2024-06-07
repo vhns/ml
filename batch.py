@@ -11,7 +11,7 @@ import copy
 from pathlib import PurePath
 import pandas as pd
 
-def batchdata(path,train,test,validation,universities):
+def batch_data(path, train, test, validation, universities):
 
     if path == None:
         path = './'

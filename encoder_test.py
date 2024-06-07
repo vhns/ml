@@ -1,10 +1,20 @@
 import encoder
 import base
+import threecvnn
+import logging
+import tensorflow as tf
 
-train_dataset, test_dataset, validation_dataset = base.dataset_gen('./', 0.1, 0.1, 0.1, 'PUC')
+logger = logging.getLogger(__name__)
 
-shape = 32
-autoencoder = encoder.Autoencoder(8,shape)
-autoencoder.compile(optimizer='adam', loss=losses.MeanSquaredError())
+logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p',
+                       filename='log.txt', encoding='utf-8', level=logging.INFO)
 
-trainmodel(autoencoder, train_dataset, test_dataset, validation_dataset, './tests/decoder/checkpoint.keras', 32, './tests/decoder/')
+train_dataset, test_dataset, validation_dataset = base.dataset_gen('./', 0.01, 0.001, 0.001, 'PUC', True)
+
+shape = 64
+#latent_dim = 64
+#autoencoder = encoder.Autoencoder(latent_dim, shape)
+autoencoder = threecvnn.encoder()
+autoencoder.compile(optimizer='adam', loss=tf.keras.losses.MeanSquaredError(),metrics=['accuracy'])
+
+base.train_model(autoencoder, train_dataset, test_dataset, validation_dataset, './tests/decoder/checkpoint.keras', 64, './tests/decoder/')

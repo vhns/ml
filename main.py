@@ -1,5 +1,6 @@
 import argparse
 import batch
+import logging
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -15,7 +16,7 @@ if __name__ == '__main__':
     parser.add_argument('--model-path', '-mp', default=None, required=False, type=str,
                                                 nargs='+')
     parser.add_argument('--gen-graphs', '-gg', default=None, required=False, type=bool)
-    parser.add_argument('--logpath', '-l', default=None, required=False, type=str)
+    parser.add_argument('--logpath', '-l', default='/dev/null', required=False, type=str)
 
     path = parser.parse_args().path
     train = parser.parse_args().train
@@ -27,10 +28,10 @@ if __name__ == '__main__':
     gen_graphs = parser.parse_args().gen_graphs
     logpath = parser.parse_args().log
 
-    if logpath != None:
-        logger = ProgramLogger(logpath, True)
-    else:
-        logger = ProgramLogger(logpath, False)
+    logger = getLogger(__name__)
+
+    logger.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p',
+                       filename=logpath, encoding='utf-8', level=logging.INFO)
 
     if batch_run:
         batch.batchdata(path,train,test,validation,university)

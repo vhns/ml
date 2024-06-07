@@ -9,20 +9,7 @@ import math
 import random
 import sys
 import visualization
-
-#This function receives a regex pattern and a list.
-#It returns the items that match the pattern, in another
-#list.
-def search(pattern: type[re.Pattern], inputs: []):
-
-    matches = []
-
-    for _input in inputs:
-        if pattern.match(_input) != None:
-            matches.append(_input)
-
-    return matches
-
+import fnmatch
 
 #This function generates an array of arrays (a matrix?) which contains the following:
 #[0] = an array of image path(s) from the specified path and respective university
@@ -68,36 +55,34 @@ def search(pattern: type[re.Pattern], inputs: []):
 #
 def pathgen(path: str, university: str)->[[]]:
 
-    pattern = re.compile("^.*\.jpg$")
-    pklot = []
+    dataset = []
     requirements = ['PKLotSegmented']
+    pklot = []
 
-    if university:
+    if university != None:
         requirements.append(university)
 
     for root, dirs, files in os.walk(top=path,followlinks=True):
 
-        rootpath = PurePath(root).parts
-        files = search(pattern, files)
+        root_path = PurePath(root).parts
 
         if len(files) > 0:
-            if all(requirement in rootpath for requirement in requirements):
+            if all(requirement in root_path for requirement in requirements):
                 for file in files:
-                    #university
-                    pklot.append([rootpath[-4], \
-                    #weather
-                    rootpath[-3], \
-                    #date
-                    rootpath[-2], \
-                    #state (empty/occupied)
-                    rootpath[-1], \
-                    #complete file path
-                    os.path.abspath(os.path.join(root,file))])
+                    if fnmatch.fnmatch(file, '*.jpg'):
+
+                        university = root_path[-4]
+                        weather = root_path[-3]
+                        date = root_path[-2]
+                        state = root_path[-1]
+                        file_path = os.path.abspath(os.path.join(root,file))
+
+                        pklot.append([university, weather, date, file_path])
 
     return pklot
 
 
-def dataset_gen(datasetpath: str, percentagetrain: float, percentagetest: float, percentagevalidation: float, university: str, overlap_days: bool):
+def dataset_gen(datasetpath: str, percentagetrain: float, percentagetest: float, percentagevalidation: float, university: str, overlap_days: bool)->[[]]:
 
     dataset = pathgen(datasetpath, university)
     days = list(set([day[2] for day in dataset]))
@@ -111,49 +96,76 @@ def dataset_gen(datasetpath: str, percentagetrain: float, percentagetest: float,
     test_files = []
     validation_files = []
 
+    if overlap_days:
 
-    x = int(math.ceil(len(days)*percentagetrain))
-    y = int(math.ceil(len(days)*percentagetest))
-    z = int(math.ceil(len(days)*percentagevalidation))
+        x = int(math.floor(len(dataset)*percentagetrain))
+        y = int(math.ceil(len(dataset)*percentagetest))
+        z = int(math.ceil(len(dataset)*percentagevalidation))
 
-    for i in range(0,x):
-        l = random.randrange(0,len(days))
-        train.append(days[l])
-        days.pop(l)
-    for i in range(0,y):
-        l = random.randrange(0,len(days))
-        test.append(days[l])
-        days.pop(l)
-    for i in range(0,z):
-        l = random.randrange(0,len(days))
-        validation.append(days[l])
-        days.pop(l)
+        for i in range(0,x):
+            l = random.randrange(0,len(dataset))
+            train.append(dataset[l])
+            dataset.pop(l)
+        for i in range(0,y):
+            l = random.randrange(0,len(dataset))
+            test.append(dataset[l])
+            dataset.pop(l)
+        for i in range(0,z):
+            l = random.randrange(0,len(dataset))
+            validation.append(dataset[l])
+            dataset.pop(l)
 
-    print(f"\n\n\nDIAS DE TESTE: {test}")
-    print(f"\n\n\nDIAS DE TREINO: {train}")
-    print(f"\n\n\nDIAS DE VALIDACAO: {validation}\n\n\n")
+        train_files = train
+        test_files = test
+        validation_files = validation
 
 
-    for i in train:
-            for j in dataset:
+    else:
+
+        x = int(math.ceil(len(days)*percentagetrain))
+        y = int(math.ceil(len(days)*percentagetest))
+        z = int(math.ceil(len(days)*percentagevalidation))
+
+        for i in range(0,x):
+            l = random.randrange(0,len(days))
+            train.append(days[l])
+            days.pop(l)
+        for i in range(0,y):
+            l = random.randrange(0,len(days))
+            test.append(days[l])
+            days.pop(l)
+        for i in range(0,z):
+            l = random.randrange(0,len(days))
+            validation.append(days[l])
+            days.pop(l)
+
+
+
+        for i in train:
+                for j in dataset:
+                        if j[2] == i:
+                                train_files.append([j[-1],j[-2]])
+
+
+        for i in test:
+                for j in dataset:
+                        if j[2] == i:
+                                test_files.append([j[-1],j[-2]])
+
+
+        for i in validation:
+                for j in dataset:
                     if j[2] == i:
-                            train_files.append([j[-1],j[-2]])
+                        validation_files.append([j[-1],j[-2]])
+
+        print(f"DIAS DE TESTE: {test}")
+        print(f"DIAS DE TREINO: {train}")
+        print(f"DIAS DE VALIDACAO: {validation}")
 
 
-    for i in test:
-            for j in dataset:
-                    if j[2] == i:
-                            test_files.append([j[-1],j[-2]])
-
-
-    for i in validation:
-            for j in dataset:
-                if j[2] == i:
-                    validation_files.append([j[-1],j[-2]])
-
-    print(f"\n\n\nQUANTIDADE TESTE: {len(test_files)}")
-    print(f"\n\n\nQUANTIDADE TREINO: {len(train_files)}")
-    print(f"\n\n\nQUANTIDADE VALIDACAO: {len(validation_files)}")
+    print(f"QUANTIDADE TESTE: {len(test_files)}")
+    print(f"QUANTIDADE TREINO: {len(train_files)}")
+    print(f"QUANTIDADE VALIDACAO: {len(validation_files)}")
 
     return train_files, test_files, validation_files
 
@@ -169,23 +181,23 @@ def convert_label(i):
             sys.exit("Error: Invalid label conversion, input: {label}")
 
 
-def dataset_generator(data, img_size, random, resize):
+def dataset_generator(data, img_size, random):
     idx = np.arange(len(data))
 
     if random:
         np.random.shuffle(idx)
 
     for i in idx:
-        label = str(data[i][1],encoding='utf-8')
-        label = convert_label(label)
-        img = data[i][0]
+        #label = str(data[i][1],encoding='utf-8')
+        #label = convert_label(label)
+        img = data[i][-1]
+        #print(img)
         img = tf.keras.utils.load_img(img)
         img = img.resize((img_size,img_size))
         img = tf.keras.utils.img_to_array(img)
-        if resize:
-            yield img.astype('float32')/255, img.astype('float32')/255
-        else:
-            yield img, img
+        #print(f'IMG SIZE 1: {img.shape}')
+        #print(f'IMG SIZE 2: {img.shape}')
+        yield img, img
 
 
 def train_model(model,train_dataset,validation_dataset,test_dataset,checkpoint_filepath,img_size, model_path):
@@ -193,32 +205,25 @@ def train_model(model,train_dataset,validation_dataset,test_dataset,checkpoint_f
     train_ds = tf.data.Dataset.from_generator(
                 dataset_generator,
                 args=[train_dataset, img_size, True],
-                output_signature=tf.TensorSpec(shape=(img_size,img_size,3), dtype=tf.uint8))
-                    #,
-                    #tf.TensorSpec(shape=(), dtype=tf.uint8)))
+                output_signature=model.output_signature)
 
     validation_ds = tf.data.Dataset.from_generator(
                 dataset_generator,
                 args=[validation_dataset, img_size, True],
-                output_signature=(
-                    tf.TensorSpec(shape=(img_size,img_size,3), dtype=tf.uint8)))
-                    #,
-                    #tf.TensorSpec(shape=(), dtype=tf.uint8)))
+                output_signature=model.output_signature)
 
     test_ds = tf.data.Dataset.from_generator(
                 dataset_generator,
                 args=[test_dataset, img_size, True],
-                output_signature=(
-                    tf.TensorSpec(shape=(img_size,img_size,3), dtype=tf.uint8)))
-                    #,
-                    #tf.TensorSpec(shape=(), dtype=tf.uint8)))
+                output_signature=model.output_signature)
 
     callback = [
             tf.keras.callbacks.ModelCheckpoint(
                 filepath=checkpoint_filepath,
                 monitor='val_accuracy',
                 mode='max',
-                save_best_only=True),
+                save_best_only=True,
+                save_weights_only=True),
             tf.keras.callbacks.CSVLogger(
                 filename=f'{model_path}/training.log',
                 separator=',',
@@ -232,7 +237,6 @@ def train_model(model,train_dataset,validation_dataset,test_dataset,checkpoint_f
     visualization.show_sample(validation_ds)
 
 
-
     model.fit(x=train_ds.batch(32).prefetch(4),epochs=5, \
             validation_data=validation_ds.batch(32).prefetch(4),
               callbacks=callback)
@@ -240,4 +244,3 @@ def train_model(model,train_dataset,validation_dataset,test_dataset,checkpoint_f
     model.evaluate(x=test_ds.batch(32).prefetch(4))
 
     visualization.show_sample_with_results(model, test_ds)
-

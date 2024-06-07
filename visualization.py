@@ -7,7 +7,7 @@ def show_sample(dataset):
         image, label = next(iter(dataset))
         ax = plt.subplot(3, 3, i + 1)
         plt.imshow(image.numpy().astype("uint8"))
-        plt.title(label.numpy().astype("uint8"))
+        #plt.title(label.numpy().astype("uint8"))
         plt.axis("off")
     plt.show()
 
@@ -34,12 +34,14 @@ def gen_graphs(data, path):
     plt.show()
 
 def show_sample_with_results(model, dataset):
-    dataset = dataset.take(9)
+    dataset = iter(dataset.take(9))
     plt.figure(figsize=(15,15))
     for i in range(9):
-        image, _ = next(iter(dataset))
+        image, _ = next(dataset)
         ax = plt.subplot(3,3,i+1)
-        image_generated = model(image)
+        sample_image = (np.array(image))
+        image_with_batch = np.expand_dims(sample_image, axis=0)
+        image_generated = model(image_with_batch)
         plt.imshow(image.numpy().astype("uint8"))
         plt.imshow(image_generated.numpy().astype("uint8"))
         plt.axis("off")
