@@ -47,7 +47,7 @@ def batch_data(path, train, test, validation, universities):
 
         for university in universities:
 
-            dataset = base.dataset_gen(path,train,test,validation,university)
+            dataset = base.dataset_gen(path,train,test,validation,university, False)
 
             train_dataset, test_dataset, validation_dataset = dataset
 
