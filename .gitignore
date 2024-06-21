@@ -4,3 +4,9 @@ __pycache__
 *.keras
 tests
 *.swp
+batch_results
+strace.txt
+requirements.txt.old
+PKLot.tar.gz
+log.txt
+dataset.json

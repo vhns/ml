@@ -105,7 +105,8 @@ class ThreeCvnn(keras.Model):
             img = tf.keras.utils.load_img(data[i][0])
 
             img = img.resize((img_size, img_size))
-            img = tf.keras.utils.img_to_array(img)/255.0
+            #img = tf.keras.utils.img_to_array(img)/255.0
+            img = tf.keras.utils.img_to_array(img)
 
             yield img, label
 
@@ -173,6 +174,180 @@ class ThreeCvnn(keras.Model):
             plt.imshow(image)
             plt.axis("off")
             plt.title(f"Predicted: {prediction_pos} Truth: {label}")
+        plt.savefig(f'{self.model_path}/prediction.png')
+        plt.close()
+
+class Whale(keras.Model):
+    def __init__(self, num_classes=2, random=True, dataset=None, model_path=None, epochs=None, logger=None):
+        super().__init__()
+
+        self.logger = logger
+
+        self.logger.info(
+            "Instanciando modelo ThreeCvnn_Encoder com os parametros:")
+        self.logger.info(f'num_classes: {num_classes}')
+        self.logger.info(f'random: {random}')
+        json.dump(dataset, open(f'{model_path}/dataset.json', 'w'), indent=4)
+        self.logger.info(f'dataset: salvo em {model_path}/dataset.txt')
+        self.logger.info(f'model_path: {model_path}')
+        self.logger.info(f'epochs: {epochs}')
+
+        self.random = random
+        self.dataset = dataset
+        self.model_path = model_path
+        self.epochs = epochs
+
+        logger.info(
+            f'Quantidade de dias de teste: {len(self.dataset["test"])}')
+        logger.info(
+            f'Quantidade de dias de treino: {len(self.dataset["train"])}')
+        logger.info(
+            f'Quantidade de dias de validation: {len(self.dataset["validation"])}')
+
+        self.callback = [
+            tf.keras.callbacks.ModelCheckpoint(
+                filepath=f'{self.model_path}/best.weights.h5',
+                monitor='val_accuracy',
+                mode='max',
+                save_best_only=True,
+                save_weights_only=True),
+            tf.keras.callbacks.CSVLogger(
+                filename=f'{self.model_path}/training.log',
+                separator=',',
+                append=False)
+        ]
+
+        self.output_signature = (tf.TensorSpec(shape=(32, 32, 3), dtype=tf.float32),
+                                 tf.TensorSpec(shape=(32, 32, 3), dtype=tf.float32))
+
+        self.train_dataset = tf.data.Dataset.from_generator(
+            self.generator,
+            args=[list(self.dataset['train']), 32, True],
+            output_signature=self.output_signature)
+        self.test_dataset = tf.data.Dataset.from_generator(
+            self.generator,
+            args=[list(self.dataset['test']), 32, True],
+            output_signature=self.output_signature)
+        self.validation_dataset = tf.data.Dataset.from_generator(
+            self.generator,
+            args=[list(self.dataset['validation']), 32, True],
+            output_signature=self.output_signature)
+
+        self.encoder = tf.keras.Sequential([
+            keras.layers.Conv2D(192, kernel_size=(3, 3), strides=(
+                1, 1), activation='relu', padding='same'),
+            keras.layers.MaxPool2D(pool_size=(
+                2, 2), strides=(2, 2), padding='valid'),
+            keras.layers.Conv2D(64, kernel_size=(
+                3, 3), strides=(1, 1), padding='valid', activation='relu'),
+            keras.layers.MaxPool2D(pool_size=(
+                2, 2), strides=(2, 2), padding='valid'),
+            keras.layers.Conv2D(64, kernel_size=(
+                3, 3), strides=(1, 1), padding='valid', activation='relu'),
+            keras.layers.MaxPool2D(pool_size=(
+                2, 2), strides=(2, 2), padding='valid'),
+            keras.layers.Flatten(),
+            keras.layers.Dense(64, activation='relu')
+        ],
+            name='encoder'
+        )
+        self.decoder = tf.keras.Sequential([
+            keras.layers.Dense(64, activation='relu'),
+            # Shape to match the output of the last MaxPool2D layer in encoder
+            keras.layers.Reshape((4, 4, 4)),
+            keras.layers.Conv2DTranspose(64, kernel_size=(
+                3, 3), strides=(2, 2), padding='same', activation='relu'),
+            keras.layers.Conv2DTranspose(64, kernel_size=(
+                3, 3), strides=(2, 2), padding='same', activation='relu'),
+            keras.layers.Conv2DTranspose(32, kernel_size=(
+                3, 3), strides=(2, 2), padding='same', activation='relu'),
+            keras.layers.Conv2DTranspose(3, kernel_size=(3, 3), strides=(
+                1, 1), padding='same', activation='sigmoid')
+        ],
+            name='decoder'
+        )
+
+        self.logger.info("Concluida instanciação do modelo ThreeCvnn_encoder")
+
+    def call(self, inputs, training=False):
+        encoded = self.encoder(inputs, training=training)
+        decoded = self.decoder(encoded, training=training)
+        return decoded
+
+    def generator(self, data, img_size, random):
+
+        idx = np.arange(len(data))
+
+        if random:
+            np.random.shuffle(idx)
+
+        for i in idx:
+            img = tf.keras.utils.load_img(data[i][0])
+
+            img = img.resize((img_size, img_size))
+            #img = tf.keras.utils.img_to_array(img)/255.0
+            img = tf.keras.utils.img_to_array(img)
+
+            yield img, img
+
+    def train(self):
+        self.logger.info("Iniciando treino do modelo ThreeCvnn_encoder")
+
+        self.logger.info("Compilando o modelo")
+        self.compile(optimizer='Adam',
+                     loss=keras.losses.MeanAbsoluteError(),
+                     metrics=['accuracy'])
+        self.logger.info("Modelo compilado")
+
+        self.logger.info("Iniciando model.fit do ThreeCvnn_encoder")
+        history = self.fit(x=self.train_dataset.batch(32).prefetch(4), epochs=self.epochs,
+                           validation_data=self.validation_dataset.batch(
+                               32).prefetch(4),
+                           callbacks=self.callback)
+        # summarize history for accuracy
+        plt.plot(history.history['accuracy'])
+        plt.plot(history.history['val_accuracy'])
+        plt.title('model accuracy')
+        plt.ylabel('accuracy')
+        plt.xlabel('epoch')
+        plt.legend(['train', 'test'], loc='upper left')
+        plt.savefig(f'{self.model_path}/accuracy.png')
+        plt.close()
+        # summarize history for loss
+        plt.plot(history.history['loss'])
+        plt.plot(history.history['val_loss'])
+        plt.title('model loss')
+        plt.ylabel('loss')
+        plt.xlabel('epoch')
+        plt.legend(['train', 'test'], loc='upper left')
+        plt.savefig(f'{self.model_path}/loss.png')
+        plt.close()
+        self.logger.info("Concluido model.fit")
+
+        self.logger.info("Salvando o modelo")
+        self.save_weights(f'{self.model_path}/final_model.weights.h5')
+        self.logger.info(
+            f'Modelo salvo em {self.model_path}/final_model.weights.h5')
+
+    def visualization(self):
+        self.load_weights(f'{self.model_path}/final_model.weights.h5')
+        images = iter(self.test_dataset.take(9))
+        fig = plt.figure(figsize=(32, 32))
+        rows = 2
+        columns = 9
+        for i in range(9):
+            image, _ = next(images)
+            image_with_batch = np.expand_dims(image, axis=0)
+            image_generated = tf.keras.utils.array_to_img(
+                self(image_with_batch)[0])
+            fig.add_subplot(rows, columns, i+1)
+            plt.imshow(image_generated)
+            plt.axis("off")
+            plt.title("Generated")
+            fig.add_subplot(rows, columns, i+10)
+            plt.imshow(tf.keras.utils.array_to_img(image))
+            plt.axis("off")
+            plt.title("Original")
         plt.savefig(f'{self.model_path}/prediction.png')
         plt.close()
 
@@ -247,6 +422,7 @@ class ThreeCvnn_Encoder(keras.Model):
             keras.layers.MaxPool2D(pool_size=(
                 2, 2), strides=(2, 2), padding='valid'),
             keras.layers.Flatten(),
+            keras.layers.Dropout(0.3),
             keras.layers.Dense(64, activation='relu')
         ],
             name='encoder'
@@ -418,7 +594,8 @@ class ThreeCvnnClassifier(keras.Model):
         self.dense = tf.keras.Sequential(
             layers=[
                 keras.layers.Flatten(),
-                keras.layers.Dense(64, activation='relu'),
+                keras.layers.Dropout(0.2),
+                keras.layers.Dense(64, activation='relu'),                
                 keras.layers.Dense(2, activation='softmax')
             ],
             name='dense'
